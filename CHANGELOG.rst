@@ -2,13 +2,6 @@
 Changelog for package rviz_satellite
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-3.0.3 (2021-01-19)
-------------------
-* Pragmatic URI check
-* Enable catkin_lint in CI
-* Enable ros industrial CI
-* Update maintainer info
-
 3.0.2 (2020-10-13)
 ------------------
 * Fix time synchronization of NavSat transform lookup

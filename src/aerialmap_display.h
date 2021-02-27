@@ -19,14 +19,15 @@ limitations under the License. */
 
 #include <boost/optional.hpp>
 
-#include <ros/ros.h>
-#include <ros/time.h>
-#include <rviz/display.h>
-#include <sensor_msgs/NavSatFix.h>
+#include <rclcpp/rclcpp.hpp>
+#include <rviz_common/display.hpp>
+#include <rviz_common/ros_integration/ros_node_abstraction_iface.hpp>
+#include <sensor_msgs/msg/nav_sat_fix.hpp>
 #include <tf2_ros/buffer.h>
 
-#include <OGRE/OgreMaterial.h>
-#include <OGRE/OgreVector3.h>
+// #include <OgreTexture.h>
+#include <OgreMaterial.h>
+#include <OgreVector3.h>
 
 #include "ogre_tile.h"
 #include "tile_cache_delay.h"
@@ -36,18 +37,23 @@ namespace Ogre
 class ManualObject;
 }
 
-namespace rviz
+namespace rviz_common::properties
 {
 class FloatProperty;
 class IntProperty;
 class Property;
 class RosTopicProperty;
 class StringProperty;
+}  // rviz_common::properties
 
+
+namespace rviz
+{
 /**
  * @brief Displays a satellite map along the XY plane.
  */
-class AerialMapDisplay : public Display
+
+class AerialMapDisplay : public rviz_common::Display
 {
   Q_OBJECT
 public:
@@ -55,6 +61,7 @@ public:
   ~AerialMapDisplay() override;
 
   // Overrides from Display
+  void onInitialize() override;
   void reset() override;
   void update(float, float) override;
 
@@ -77,7 +84,7 @@ protected:
   /**
    * GPS topic callback
    */
-  void navFixCallback(sensor_msgs::NavSatFixConstPtr const& msg);
+  void navFixCallback(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
 
   /**
    * Load images to cache (non-blocking)
@@ -87,7 +94,7 @@ protected:
   /**
    * Triggers texture update if the center-tile changed w.r.t. the current one
    */
-  void updateCenterTile(sensor_msgs::NavSatFixConstPtr const& msg);
+  void updateCenterTile(const sensor_msgs::msg::NavSatFix::SharedPtr msg);
 
   /**
    * Generates the tile's render geometry and applies the requested textures
@@ -139,23 +146,22 @@ protected:
 
     MapObject(Ogre::ManualObject* o, Ogre::MaterialPtr m) : object(o), material(m)
     {
-      assert(!material.isNull());
+      assert(material);
     }
   };
 
   /// the tile scene objects
   std::vector<MapObject> objects_;
 
-  /// the subscriber for the NavSatFix topic
-  ros::Subscriber navsat_fix_sub_;
+  rclcpp::Subscription< sensor_msgs::msg::NavSatFix >::SharedPtr navsat_fix_sub_;
 
   // properties
-  RosTopicProperty* topic_property_;
-  StringProperty* tile_url_property_;
-  IntProperty* zoom_property_;
-  IntProperty* blocks_property_;
-  FloatProperty* alpha_property_;
-  Property* draw_under_property_;
+  rviz_common::properties::RosTopicProperty* topic_property_ = nullptr;
+  rviz_common::properties::StringProperty* tile_url_property_ = nullptr;
+  rviz_common::properties::IntProperty* zoom_property_ = nullptr;
+  rviz_common::properties::IntProperty* blocks_property_ = nullptr;
+  rviz_common::properties::FloatProperty* alpha_property_ = nullptr;
+  rviz_common::properties::Property* draw_under_property_ = nullptr;
 
   /// the alpha value of the tile's material
   float alpha_;
@@ -172,7 +178,7 @@ protected:
   /// whether we need to re-query and re-assemble the tiles
   bool dirty_{ false };
   /// the last NavSatFix message that lead to updating the tiles
-  sensor_msgs::NavSatFixConstPtr ref_fix_{ nullptr };
+  sensor_msgs::msg::NavSatFix::SharedPtr ref_fix_{ nullptr };
   /// caches tile images, hashed by their fetch URL
   TileCacheDelay<OgreTile> tile_cache_;
   /// Last request()ed tile id (which is the center tile)
@@ -181,9 +187,12 @@ protected:
   Ogre::Vector3 t_centertile_map_{ Ogre::Vector3::ZERO };
   /// the map frame, rigidly attached to the world with ENU convention - see https://www.ros.org/reps/rep-0105.html#map
   std::string static const MAP_FRAME;
-
+  /// rclcpp node
+  rviz_common::ros_integration::RosNodeAbstractionIface::WeakPtr rviz_ros_node_;
+  /// qos
+  rclcpp::QoS update_profile_ = rclcpp::SensorDataQoS();
   /// buffer for tf lookups not related to fixed-frame
-  std::shared_ptr<tf2_ros::Buffer const> tf_buffer_{ nullptr };
+  std::shared_ptr< tf2_ros::Buffer > tf_buffer_;
 };
 
 }  // namespace rviz
